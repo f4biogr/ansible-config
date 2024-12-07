@@ -57,10 +57,6 @@
         executable: "{{ ansible_env.SHELL }}"
       register: uv_install_status
 
-    - name: Debug
-      ansible.builtin.debug:
-        msg: "{{ uv_install_status }}"
-
     - name: Download script uv install
       ansible.builtin.get_url:
         url: https://astral.sh/uv/install.sh
@@ -116,6 +112,14 @@
         dest: ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
         depth: 1
     
+    - name: Create a zshrc
+      ansible.builtin.get_url:
+        url: https://gist.githubusercontent.com/f4biogr/f80bd3d7b97b89d669090261e7b12b65/raw/e063388e102977d46ed8b18b69933da01529bdd9/.zshrc
+        dest: "{{ ansible_env.HOME }}/.zshrc"
+        mode: "644"
+        owner: 1000
+        group: 100
+
     - name: Ensure fonts directory
       ansible.builtin.file:
         path: "{{ lookup('env', 'HOME') }}/.fonts"
