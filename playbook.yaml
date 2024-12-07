@@ -51,6 +51,29 @@
           - microsoft-edge-stable          
         state: present
     
+    - name: Check uv install
+      ansible.builtin.shell:
+        cmd: uv version
+        executable: "{{ ansible_env.SHELL }}"
+      register: uv_install_status
+
+    - name: Debug
+      ansible.builtin.debug:
+        msg: "{{ uv_install_status }}"
+
+    - name: Download script uv install
+      ansible.builtin.get_url:
+        url: https://astral.sh/uv/install.sh
+        dest: /tmp/uv-install.sh
+        mode: "0755"
+      changed_when: uv_install_status.rc != 0 
+
+    - name: Install uv
+      ansible.builtin.shell: 
+        cmd: /tmp/uv-install.sh
+        executable: /bin/bash
+      changed_when: uv_install_status.rc != 0 
+
     - name: Zsh Path
       ansible.builtin.shell: which zsh
       args:
