@@ -1,0 +1,149 @@
+- name: Playbook
+  hosts: localhost
+  tasks:
+    - name: Update all packages
+      become: true
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+    
+    - name: Add vscode repo
+      become: true
+      ansible.builtin.yum_repository:
+        name: vscode
+        async: true
+        baseurl: https://packages.microsoft.com/yumrepos/vscode
+        enabled: true
+        gpgkey:
+          - https://packages.microsoft.com/keys/microsoft.asc
+        state: present
+
+
+    - name: Add ms-edge repo
+      become: true
+      ansible.builtin.yum_repository:
+        name: microsoft-edge
+        async: true
+        baseurl: https://packages.microsoft.com/yumrepos/edge
+        enabled: true
+        gpgkey:
+          - https://packages.microsoft.com/yumrepos/edge/repodata/repomd.xml.key
+        state: present
+
+    - name: Add gh-cli repo
+      become: true
+      ansible.builtin.yum_repository:
+        name: gh-cli
+        async: true
+        baseurl: https://cli.github.com/packages/rpm
+        enabled: true
+        gpgkey:
+          - https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x23F3D4EA75716059
+        gpgcheck: false
+        state: present
+
+    - name: Install packages
+      become: true
+      ansible.builtin.dnf:
+        name:
+          - zsh
+          - vim
+          - git
+          - curl
+          - wget
+          - unzip
+          - code
+          - gh
+          - podman
+          - buildah
+          - microsoft-edge-stable          
+        state: present
+    
+    - name: Check uv install
+      ansible.builtin.shell:
+        cmd: uv version
+        executable: "{{ ansible_env.SHELL }}"
+      register: uv_install_status
+
+    - name: Download script uv install
+      ansible.builtin.get_url:
+        url: https://astral.sh/uv/install.sh
+        dest: /tmp/uv-install.sh
+        mode: "0755"
+      changed_when: uv_install_status.rc != 0 
+
+    - name: Install uv
+      ansible.builtin.shell: 
+        cmd: /tmp/uv-install.sh
+        executable: /bin/bash
+      changed_when: uv_install_status.rc != 0 
+
+    - name: Get zsh executable path
+      ansible.builtin.shell: 
+        cmd: which zsh
+        executable: /bin/bash
+      register: path
+    
+    - name: Set zsh default shell
+      become: true
+      ansible.builtin.user:
+        name: fabio
+        shell: "{{ path.stdout }}"
+
+    - name: Install oh-my-zsh
+      ansible.builtin.git:
+        repo: https://github.com/ohmyzsh/ohmyzsh
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh"
+        depth: 1
+ 
+    - name: Install zsh-autosuggestions plugin
+      ansible.builtin.git:
+        repo: https://github.com/zsh-users/zsh-autosuggestions
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
+        depth: 1
+
+    - name: Install zsh-history-substring-search plugin
+      ansible.builtin.git:
+        repo: https://github.com/zsh-users/zsh-history-substring-search
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/plugins/zsh-history-substring-search"
+        depth: 1
+
+    - name: Install zsh-completions plugin
+      ansible.builtin.git:
+        repo: https://github.com/zsh-users/zsh-completions
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/plugins/zsh-completions"
+        depth: 1
+ 
+    - name: Install zsh-syntax-highlighting plugin
+      ansible.builtin.git:
+        repo: https://github.com/zsh-users/zsh-syntax-highlighting
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
+        depth: 1
+    
+    - name: Create a zshrc
+      ansible.builtin.get_url:
+        url: https://gist.githubusercontent.com/f4biogr/f80bd3d7b97b89d669090261e7b12b65/raw/e063388e102977d46ed8b18b69933da01529bdd9/.zshrc
+        dest: "{{ ansible_env.HOME }}/.zshrc"
+        mode: "644"
+
+    - name: Ensure fonts directory
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') }}/.fonts"
+        state: directory
+
+    - name: JetBrains exists
+      ansible.builtin.shell: "ls {{ lookup('env', 'HOME') }}/.fonts/JetBrains*"
+      register: jetbrains_exists
+      ignore_errors: yes
+
+    - name: Download JetBrains
+      when: jetbrains_exists is failed
+      ansible.builtin.unarchive:
+        src: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.zip
+        dest: "{{ lookup('env', 'HOME') }}/.fonts/"
+        remote_src: yes
+
+    - name: Update Fonts
+      when: jetbrains_exists is failed
+      ansible.builtin.shell: "fc-cache -vf"
+      ignore_errors: yes
