@@ -128,22 +128,22 @@
 
     - name: Ensure fonts directory
       ansible.builtin.file:
-        path: "{{ lookup('env', 'HOME') }}/.fonts"
+        path: "{{ ansible_env.HOME }}/.fonts"
         state: directory
 
     - name: JetBrains exists
-      ansible.builtin.shell: "ls {{ lookup('env', 'HOME') }}/.fonts/JetBrains*"
+      ansible.builtin.shell: "ls {{ ansible_env.HOME }}/.fonts/JetBrainsMono"
       register: jetbrains_exists
       ignore_errors: yes
 
-    - name: Download JetBrains
+    - name: Download jetbrains
       when: jetbrains_exists is failed
       ansible.builtin.unarchive:
         src: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.zip
-        dest: "{{ lookup('env', 'HOME') }}/.fonts/"
+        dest: "{{ ansible_env.HOME }}/.fonts/JetBrainsMono"
         remote_src: yes
 
-    - name: Update Fonts
+    - name: Update fonts
       when: jetbrains_exists is failed
       ansible.builtin.shell: "fc-cache -vf"
       ignore_errors: yes
