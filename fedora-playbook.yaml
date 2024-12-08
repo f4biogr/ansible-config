@@ -11,6 +11,7 @@
       become: true
       ansible.builtin.yum_repository:
         name: vscode
+        description: "vscode repo"
         async: true
         baseurl: https://packages.microsoft.com/yumrepos/vscode
         enabled: true
@@ -18,11 +19,11 @@
           - https://packages.microsoft.com/keys/microsoft.asc
         state: present
 
-
     - name: Add ms-edge repo
       become: true
       ansible.builtin.yum_repository:
         name: microsoft-edge
+        description: "ms-edge repo"
         async: true
         baseurl: https://packages.microsoft.com/yumrepos/edge
         enabled: true
@@ -34,6 +35,7 @@
       become: true
       ansible.builtin.yum_repository:
         name: gh-cli
+        description: "github cli repo"
         async: true
         baseurl: https://cli.github.com/packages/rpm
         enabled: true
@@ -58,12 +60,29 @@
           - buildah
           - microsoft-edge-stable          
         state: present
-    
+
+    - name: Add the flathub flatpak repo
+      community.general.flatpak_remote:
+        name: flathub
+        state: present
+        flatpakrepo_url: https://dl.flathub.org/repo/flathub.flatpakrepo
+        method: user
+
+    - name: Install flatpak packages
+      community.general.flatpak:
+        name:
+          - com.usebruno.Bruno
+          - dev.skynomads.Seabird
+          - app.ytmdesktop.ytmdesktop
+        state: latest
+        method: user
+
     - name: Check uv install
       ansible.builtin.shell:
         cmd: uv version
         executable: "{{ ansible_env.SHELL }}"
       register: uv_install_status
+      ignore_errors: true
 
     - name: Download script uv install
       ansible.builtin.get_url:
@@ -128,22 +147,25 @@
 
     - name: Ensure fonts directory
       ansible.builtin.file:
-        path: "{{ ansible_env.HOME }}/.fonts"
+        path: "{{ item }}"
         state: directory
+      loop:
+        - "{{ ansible_env.HOME }}/.fonts"
+        - "{{ ansible_env.HOME }}/.fonts/JetBrainsMono"
 
     - name: JetBrains exists
-      ansible.builtin.shell: "ls {{ ansible_env.HOME }}/.fonts/JetBrainsMono"
+      ansible.builtin.find:
+        paths: "{{ ansible_env.HOME }}/.fonts/JetBrainsMono"
+        file_type: any
       register: jetbrains_exists
-      ignore_errors: yes
 
     - name: Download jetbrains
-      when: jetbrains_exists is failed
+      when: jetbrains_exists.matched == 0
       ansible.builtin.unarchive:
         src: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.3.0/JetBrainsMono.zip
         dest: "{{ ansible_env.HOME }}/.fonts/JetBrainsMono"
         remote_src: yes
 
     - name: Update fonts
-      when: jetbrains_exists is failed
+      when: jetbrains_exists.matched == 0
       ansible.builtin.shell: "fc-cache -vf"
-      ignore_errors: yes
