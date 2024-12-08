@@ -169,3 +169,12 @@
     - name: Update fonts
       when: jetbrains_exists.matched == 0
       ansible.builtin.shell: "fc-cache -vf"
+
+    - name: Configure git
+      community.general.git_config:
+        name: "{{ item.name }}"
+        scope: global
+        value: "{{ item.value }}"
+      loop:
+        - { name: 'user.name', value: 'Fábio da Rosa' }
+        - { name: 'user.email', value: 'fabio.gorosa@gmail.com' }
