@@ -1,0 +1,118 @@
+- name: Playbook
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Update all packages
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install required dependencies for adding repositories
+      ansible.builtin.apt:
+        name:
+          - software-properties-common
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+
+    - name: Add GitHub CLI repository
+      block:
+        - name: Download and add GitHub CLI GPG key
+          ansible.builtin.shell: 
+            cmd: curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+
+        - name: Add GitHub CLI repository
+          ansible.builtin.apt_repository:
+            repo: deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main
+            filename: github-cli
+            state: present
+
+    - name: Install packages
+      ansible.builtin.apt:
+        name:
+          - zsh
+          - neovim
+          - git
+          - wget
+          - unzip
+          - gh
+        state: present
+        
+    - name: Check uv install
+      ansible.builtin.shell:
+        cmd: uv version
+        executable: "{{ ansible_env.SHELL }}"
+      register: uv_install_status
+      ignore_errors: true
+
+    - name: Download script uv install
+      ansible.builtin.get_url:
+        url: https://astral.sh/uv/install.sh
+        dest: /tmp/uv-install.sh
+        mode: "0755"
+      changed_when: uv_install_status.rc != 0 
+
+    - name: Install uv
+      ansible.builtin.shell: 
+        cmd: /tmp/uv-install.sh
+        executable: /bin/bash
+      changed_when: uv_install_status.rc != 0 
+
+    - name: Get zsh executable path
+      ansible.builtin.shell: 
+        cmd: which zsh
+        executable: /bin/bash
+      register: path
+    
+    - name: Set zsh default shell
+      become: true
+      ansible.builtin.user:
+        name: "{{ ansible_user_id }}"
+        shell: "{{ path.stdout }}"
+
+    - name: Install oh-my-zsh
+      ansible.builtin.git:
+        repo: https://github.com/ohmyzsh/ohmyzsh
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh"
+        depth: 1
+ 
+    - name: Install zsh-autosuggestions plugin
+      ansible.builtin.git:
+        repo: https://github.com/zsh-users/zsh-autosuggestions
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
+        depth: 1
+
+    - name: Install zsh-history-substring-search plugin
+      ansible.builtin.git:
+        repo: https://github.com/zsh-users/zsh-history-substring-search
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/plugins/zsh-history-substring-search"
+        depth: 1
+
+    - name: Install zsh-completions plugin
+      ansible.builtin.git:
+        repo: https://github.com/zsh-users/zsh-completions
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/plugins/zsh-completions"
+        depth: 1
+ 
+    - name: Install zsh-syntax-highlighting plugin
+      ansible.builtin.git:
+        repo: https://github.com/zsh-users/zsh-syntax-highlighting
+        dest: "{{ ansible_env.HOME }}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
+        depth: 1
+    
+    - name: Create a zshrc
+      ansible.builtin.get_url:
+        url: https://gist.githubusercontent.com/f4biogr/f80bd3d7b97b89d669090261e7b12b65/raw/e063388e102977d46ed8b18b69933da01529bdd9/.zshrc
+        dest: "{{ ansible_env.HOME }}/.zshrc"
+        mode: "644"
+
+    - name: Configure git
+      community.general.git_config:
+        name: "{{ item.name }}"
+        scope: global
+        value: "{{ item.value }}"
+      loop:
+        - { name: 'user.name', value: 'Fábio da Rosa' }
+        - { name: 'user.email', value: 'fabio.gorosa@gmail.com' }
